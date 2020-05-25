@@ -18,15 +18,24 @@
 from cddm_experiment.config import load_config
 from cddm.video import show_video, play, show_fft, show_diff
 from cddm_experiment.frame_grabber import frame_grabber, queued_multi_frame_grabber
+from cddm.conf import set_showlib
+
+set_showlib("cv2")
+
+def norm_func(x): 
+    return x/(2**8-1)
 
 trigger_config, cam_config = load_config()
+
+signal_ratio=0.02
+clip=cam_config["imgheight"]*cam_config["imgwidth"]*signal_ratio
    
 video = frame_grabber(trigger_config,cam_config)
 #video = queued_multi_frame_grabber(frame_grabber, (trigger_config,cam_config))
 
-video=show_video(video, id=0)
+video=show_video(video, id=0, norm_func=norm_func)
 video=show_diff(video)
-video=show_fft(video, clip = 5000)   
+video=show_fft(video, clip = clip)   
 video=play(video, fps=30)
 
 for frames in video:
