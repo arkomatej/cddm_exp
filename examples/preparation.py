@@ -15,23 +15,19 @@
 ===================================================================================================
 '''
 
-import cddm_experiment
 from cddm_experiment.config import load_config
-import cddm
-from cddm.video import show_video, play
-from cddm.fft import show_alignment_and_focus
+from cddm.video import show_video, play, show_fft, show_diff
 from cddm_experiment.frame_grabber import frame_grabber, queued_multi_frame_grabber
-cddm.conf.set_cv2(1)
 
 trigger_config, cam_config = load_config()
    
-VIDEO = frame_grabber(trigger_config,cam_config)
-#VIDEO = queued_multi_frame_grabber(frame_grabber, (trigger_config,cam_config))
+video = frame_grabber(trigger_config,cam_config)
+video = queued_multi_frame_grabber(frame_grabber, (trigger_config,cam_config))
 
-video = show_video(VIDEO, id=0)   
+video=show_video(video, id=0)
+video=show_diff(video)
+video=show_fft(video, clip = 5000)   
+video=play(video, fps=30)
 
-f_video = show_alignment_and_focus(video, id=0, clipfactor=0.1)
-f_video = play(f_video, fps = 15)
-
-for i,frames in enumerate(f_video):
-    print ("Frame ",i)
+for frames in video:
+   pass

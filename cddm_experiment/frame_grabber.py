@@ -26,7 +26,7 @@ import PySpin
 import traceback
 import sys
 from multiprocessing import Queue, Process
-from trigger import run_arduino
+from cddm_experiment.trigger import run_arduino
 import time
 
 
