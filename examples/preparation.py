@@ -22,7 +22,7 @@ from cddm_experiment.frame_grabber import frame_grabber, queued_multi_frame_grab
 trigger_config, cam_config = load_config()
    
 video = frame_grabber(trigger_config,cam_config)
-video = queued_multi_frame_grabber(frame_grabber, (trigger_config,cam_config))
+#video = queued_multi_frame_grabber(frame_grabber, (trigger_config,cam_config))
 
 video=show_video(video, id=0)
 video=show_diff(video)

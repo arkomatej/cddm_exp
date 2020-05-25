@@ -20,17 +20,21 @@ import matplotlib.pyplot as plt
 
 if __name__ == "__main__":
 
-    import cddm_experiment
     from cddm.video import multiply
     from cddm.window import blackman
+    from cddm.multitau import iccorr_multi, normalize_multi, log_merge
+    from cddm.conf import set_verbose
+    from cddm.fft import rfft2, normalize_fft
     from cddm_experiment.frame_grabber import frame_grabber, queued_multi_frame_grabber
     from cddm_experiment.trigger import run_simulation
     from cddm_experiment.config import load_config
-
+    from cddm.viewer import MultitauViewer
 
     set_verbose(2)
 
     trigger_config, cam_config = load_config()
+    
+    window = blackman((512,512))
     w = ((window,window),)* trigger_config["count"]
 
     t1,t2=run_simulation(trigger_config)
@@ -39,14 +43,19 @@ if __name__ == "__main__":
 
     dual_video = queued_multi_frame_grabber(frame_grabber, (trigger_config,cam_config))
     #dual_video = frame_grabber(trigger_config,cam_config)
-    dual_video = apply_window(dual_video, (w1,w2))
     dual_video = multiply(dual_video, w)
 
     fdual_video = rfft2(dual_video, kimax = 96, kjmax = 96)
+    #fdual_video = normalize_fft(fdual_video)
+    
+    viewer = MultitauViewer(scale = True, shape = (512,512))
+    viewer.k = 15 #initial mask parameters,
+    viewer.sector = 10
 
+    data, bg, var = iccorr_multi(fdual_video, t1, t2, period = PERIOD,
+                              viewer  = viewer,  auto_background = True, binning =  True)
 
-    data, bg = iccorr_multi(fdual_video, t1, t2, period = PERIOD, level = 5,
-                              chunk_size = 128, show = True, auto_background = True, binning =  True, return_background = True)
+    cfast, cslow = normalize_multi(data, background = bg, variance = var)
 
     x, logdata = log_merge(cfast,cslow)
 
