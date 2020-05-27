@@ -46,9 +46,9 @@ if __name__ == "__main__":
     dual_video = multiply(dual_video, w)
 
     fdual_video = rfft2(dual_video, kimax = 96, kjmax = 96)
-    fdual_video = normalize_fft(fdual_video)
+    #fdual_video = normalize_fft(fdual_video)
     
-    viewer = MultitauViewer(scale = True, shape = (512,512))
+    viewer = MultitauViewer(scale = False, shape = (512,512))
     viewer.k = 15 #initial mask parameters,
     viewer.sector = 10
 
@@ -61,5 +61,7 @@ if __name__ == "__main__":
 
     np.save('x_live.npy',x)
     np.save('logdata_live.npy',logdata)
+    
+    print("Measurement saved.")
 
     plt.show()

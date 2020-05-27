@@ -25,9 +25,16 @@ set_showlib("cv2")
 def norm_func(x): 
     return x/(2**8-1)
 
+def subtract_last(video):
+    im1,im2 = 0., 0.
+    for frames in video:
+        f1,f2 = frames
+        yield f1 - im1, f2 - im2
+        im1, im2 = frames
+
 trigger_config, cam_config = load_config()
 
-signal_ratio=0.02
+signal_ratio=1
 clip=cam_config["imgheight"]*cam_config["imgwidth"]*signal_ratio
    
 video = frame_grabber(trigger_config,cam_config)
@@ -35,6 +42,7 @@ video = frame_grabber(trigger_config,cam_config)
 
 video=show_video(video, id=0, norm_func=norm_func)
 video=show_diff(video)
+video = subtract_last(video)
 video=show_fft(video, clip = clip)   
 video=play(video, fps=30)
 
