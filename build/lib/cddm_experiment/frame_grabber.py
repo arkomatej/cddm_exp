@@ -25,7 +25,7 @@ import numpy as np
 import PySpin
 import traceback
 import sys
-from multiprocessing import Queue, Process
+from multiprocessing import Queue, Process, shared_memory
 from cddm_experiment.trigger import run_arduino
 import time
 
@@ -423,7 +423,7 @@ def run_cameras(conf):
 
             im = image_converted.GetNDArray()
             image_result.Release()
-            return im
+            return im.copy()
 
         try:
             for i in range(conf["count"]):
@@ -468,6 +468,7 @@ def _queued_frame_grabber(f,server_queue,  args = (), kwargs = {}):
     None.
 
     '''
+    
 
     video = f(*args,**kwargs) #f is the _frame_grabber function in our case
 
@@ -489,6 +490,34 @@ def _queued_frame_grabber(f,server_queue,  args = (), kwargs = {}):
         #program has to wait for the queue to empty
         while server_queue.qsize():
             time.sleep(1)
+            
+            
+def _shared_frame_grabber(f, server_queue,  args = (), kwargs = {} ):
+                        
+    video = f(*args,**kwargs)
+
+    try:
+        i = 0
+        for frames in video:
+            name_list = []
+            for frame in frames:
+                shm = shared_memory.SharedMemory(create=True, size= frame.nbytes)
+                shm_name = shm.name 
+                name_list.append((shm_name, frame.shape, frame.dtype))
+                a = np.ndarray(frame.shape, dtype=frame.dtype, buffer=shm.buf)
+                a[:] = frame
+                shm.close()
+            name = tuple(name_list)
+            server_queue.put(name)
+            if i == args[0]["count"]:
+                break
+
+        print("All images captured...")
+        
+    except Exception as ex:
+        print('Error: {}'.format(ex))
+    finally:
+        server_queue.put(None)
 
 
 def queued_multi_frame_grabber(f,args = (), kwargs = {}):
@@ -539,6 +568,105 @@ def queued_multi_frame_grabber(f,args = (), kwargs = {}):
         p.terminate()
 
 
+def shared_multi_frame_grabber(f,args = (), kwargs = {}):
+              
+    server_queue = Queue()
+    p = Process(target=_shared_frame_grabber, args=(f, server_queue), kwargs = {"args" : args, "kwargs" : kwargs})
+    p.start() 
+    i = 0
+    while True:
+        data_info = server_queue.get()
+        if data_info is None:
+            #no more frames... so exit 
+            break
+        
+        out = []
+        #shm_list = []
+        
+        for frame_info in data_info:
+            name, shape, dtype = frame_info
+            shm = shared_memory.SharedMemory(name=name)
+            a = np.ndarray(shape, dtype=dtype, buffer=shm.buf) 
+            shm.close()
+            shm.unlink()
+            out.append(a.copy())
+            #shm.close()
+            #shm.unlink()
+            #shm_list.append(shm)
+        
+        yield tuple(out)
+        i+= 1
+        
+        # #shm is no longer needed
+        # for shm in shm_list:
+        #     shm.close()
+        #     shm.unlink()
+            
+    p.join()
+    
+def _shared_frame_grabber2(f, server_queue,  args = (), kwargs = {} ):
+                        
+    video = f(*args,**kwargs)
+
+    try:
+        i=0
+        for frames in video:
+            name_list = []
+            for frame in frames:
+                shm = shared_memory.SharedMemory(create=True, size= frame.nbytes)
+                shm_name = shm.name 
+                name_list.append((shm_name, frame.shape, frame.dtype))
+                a = np.ndarray(frame.shape, dtype=frame.dtype, buffer=shm.buf)
+                a[:] = frame
+                shm.close()
+            name = tuple(name_list)
+            server_queue.put(name)
+            if i == args[0]["count"]:
+                break
+
+        print("All images captured...")
+        
+    except Exception as ex:
+        print('Error: {}'.format(ex))
+    finally:
+        server_queue.put(None)
+
+
+def shared_multi_frame_grabber2(f,args = (), kwargs = {}):
+    #from multiprocessing import shared_memory
+    #import shared_memory   
+              
+    server_queue = Queue()
+    p = Process(target=_shared_frame_grabber2, args=(f, server_queue), kwargs = {"args" : args, "kwargs" : kwargs})
+    p.start() 
+    i = 0
+    while True:
+        data_info = server_queue.get()
+        if data_info is None:
+            #no more frames... so exit 
+            break
+        
+        out = []
+        shm_list = []
+        
+        for frame_info in data_info:
+            name, shape, dtype = frame_info
+            shm = shared_memory.SharedMemory(name=name)
+            a = np.ndarray(shape, dtype=dtype, buffer=shm.buf) 
+            out.append(a)
+            shm_list.append(shm)
+        
+        yield tuple(out)
+        i+= 1
+        
+        #shm is no longer needed
+        for shm in shm_list:
+            shm.close()
+            shm.unlink()
+            
+    p.join()
+
+
 def frame_grabber(trigger_config, cam_config):
     '''
     Generator function that grabs the frames from the run_cameras function and yields them.
@@ -570,18 +698,21 @@ def frame_grabber(trigger_config, cam_config):
 
 if __name__ == '__main__':
 
-    from cddm_experiment.config import load_config
-    from cddm.video import show_video, play, show_fft
+    import config
+    from cddm.video import show_video, play
+    import cddm
+    from cddm.fft import show_alignment_and_focus
+    cddm.conf.set_cv2(1)
 
-    trigger_config, cam_config = load_config()
-       
-    video = frame_grabber(trigger_config,cam_config)
-    video = queued_multi_frame_grabber(frame_grabber, (trigger_config,cam_config))
-    
-    video=show_video(video, id=0)
-    #video=show_diff(video)
-    video=show_fft(video)   
-    video=play(video, fps=30)
+    trigger_config, cam_config = config.load_config()
 
-    for frames in video:
-       pass
+    VIDEO = frame_grabber(trigger_config,cam_config)
+    #VIDEO = queued_multi_frame_grabber(frame_grabber, (trigger_config,cam_config))
+
+    video = show_video(VIDEO, id=0)
+
+    f_video = show_alignment_and_focus(video, id=0, clipfactor=0.1)
+    f_video = play(f_video, fps = 15)
+
+    for i,frames in enumerate(f_video):
+        print ("Frame ",i)
