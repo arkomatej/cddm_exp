@@ -25,7 +25,7 @@ import numpy as np
 import PySpin
 import traceback
 import sys
-from multiprocessing import Queue, Process, shared_memory
+from multiprocessing import Queue, Process
 from cddm_experiment.trigger import run_arduino
 import time
 
@@ -423,7 +423,7 @@ def run_cameras(conf):
 
             im = image_converted.GetNDArray()
             image_result.Release()
-            return im.copy()
+            return im
 
         try:
             for i in range(conf["count"]):
@@ -493,31 +493,44 @@ def _queued_frame_grabber(f,server_queue,  args = (), kwargs = {}):
             
             
 def _shared_frame_grabber(f, server_queue,  args = (), kwargs = {} ):
-                        
+    from multiprocessing import shared_memory                        
     video = f(*args,**kwargs)
+    
+    
 
     try:
         i = 0
+        shm_list = []
         for frames in video:
             name_list = []
-            for frame in frames:
-                shm = shared_memory.SharedMemory(create=True, size= frame.nbytes)
+            
+            for j,frame in enumerate(frames):
+                shm = shared_memory.SharedMemory(create=True, size= frame.nbytes, name = "frame_{}_{}".format(i,j))
+                shm_list.append(shm)
+                #shm_list.append(shm)
                 shm_name = shm.name 
                 name_list.append((shm_name, frame.shape, frame.dtype))
                 a = np.ndarray(frame.shape, dtype=frame.dtype, buffer=shm.buf)
                 a[:] = frame
-                shm.close()
+                
             name = tuple(name_list)
             server_queue.put(name)
+            i += 1
+
             if i == args[0]["count"]:
                 break
-
+            
         print("All images captured...")
         
     except Exception as ex:
         print('Error: {}'.format(ex))
     finally:
         server_queue.put(None)
+        
+        while server_queue.qsize():
+            time.sleep(1)
+        #for shm in shm_list:
+        #    shm.close()
 
 
 def queued_multi_frame_grabber(f,args = (), kwargs = {}):
@@ -568,7 +581,8 @@ def queued_multi_frame_grabber(f,args = (), kwargs = {}):
         p.terminate()
 
 
-def shared_multi_frame_grabber(f,args = (), kwargs = {}):
+def shared_multi_frame_grabber(f,args = (), kwargs = {}, copy = True):
+    from multiprocessing import shared_memory
               
     server_queue = Queue()
     p = Process(target=_shared_frame_grabber, args=(f, server_queue), kwargs = {"args" : args, "kwargs" : kwargs})
@@ -581,28 +595,38 @@ def shared_multi_frame_grabber(f,args = (), kwargs = {}):
             break
         
         out = []
-        #shm_list = []
+        shm_list = []
         
         for frame_info in data_info:
             name, shape, dtype = frame_info
             shm = shared_memory.SharedMemory(name=name)
-            a = np.ndarray(shape, dtype=dtype, buffer=shm.buf) 
-            shm.close()
-            shm.unlink()
-            out.append(a.copy())
-            #shm.close()
-            #shm.unlink()
-            #shm_list.append(shm)
+            a = np.ndarray(shape, dtype=dtype, buffer=shm.buf)
+            if copy:
+                out.append(a.copy())
+            else:
+                out.append(a)
+            
+            shm_list.append(shm)
         
         yield tuple(out)
+        
+        for shm in shm_list:
+            shm.close()
+            shm.unlink()
         i+= 1
         
-        # #shm is no longer needed
+        #shm is no longer needed
         # for shm in shm_list:
         #     shm.close()
         #     shm.unlink()
             
-    p.join()
+    try:
+        print('joining...')
+        p.join()
+
+    except KeyboardInterrupt:
+        print('Terminating...')
+        p.terminate()
     
 def _shared_frame_grabber2(f, server_queue,  args = (), kwargs = {} ):
                         

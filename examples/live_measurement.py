@@ -19,6 +19,16 @@ import numpy as np
 import matplotlib.pyplot as plt
 import time
 
+FIRST_FRAME_TIMES = []
+
+def read_start_time(video):
+    first = True
+    for frames in video:
+        if first:
+            FIRST_FRAME_TIMES.append(time.time())
+            first = False
+        yield frames
+
 def normalize_fft(video):
     for frames in video:
         f1,f2 = frames
@@ -51,12 +61,13 @@ if __name__ == "__main__":
 
     set_verbose(2)
     
-    set_rfft2lib("pyfftw")
+    #set_rfft2lib("mkl_fft")
 
-    trigger_config, cam_config = load_config()
+    trigger_config, cam_config, analysis_config = load_config()
     
     window = blackman((512,512))
     window = np.float32(window)
+    
     w = ((window,window),)* trigger_config["count"]
 
     t1,t2=run_simulation(trigger_config)
@@ -64,16 +75,22 @@ if __name__ == "__main__":
     PERIOD=trigger_config['n']*2
 
     #dual_video = queued_multi_frame_grabber(frame_grabber, (trigger_config,cam_config))
-    dual_video = queued_multi_frame_grabber(frame_grabber, (trigger_config,cam_config))
+    dual_video = shared_multi_frame_grabber(frame_grabber, (trigger_config,cam_config))
     #dual_video = frame_grabber(trigger_config,cam_config)
+    
+    dual_video = read_start_time(dual_video)
+    
     dual_video = multiply(dual_video, w)
 
     fdual_video = rfft2(dual_video, kimax = 96, kjmax = 96)
+    
     fdual_video = normalize_fft(fdual_video)
     
     #viewer = MultitauViewer(scale = False, shape = (512,512))
     #viewer.k = 15 #initial mask parameters,
     #viewer.sector = 10
+    
+    #viewer = None
 
     data, bg, var = iccorr_multi(fdual_video, t1, t2, period = PERIOD,
                               viewer  = None,  auto_background = True, binning =  True)#, thread_divisor = 6)
@@ -82,8 +99,8 @@ if __name__ == "__main__":
 
     x, logdata = log_merge(cfast,cslow)
 
-    np.save('times.npy',x)
-    np.save('data.npy',logdata) 
+    np.save(analysis_config['output']+'_times.npy',x)
+    np.save(analysis_config['output']+'_data.npy',logdata) 
     
     print("Measurement saved.")
 

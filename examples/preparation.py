@@ -43,6 +43,7 @@ def normalize_diff(video):
 trigger_config, cam_config = load_config()
 
 signal_ratio=1
+
 clip=cam_config["imgheight"]*cam_config["imgwidth"]*signal_ratio
    
 video = frame_grabber(trigger_config,cam_config)

@@ -25,7 +25,7 @@ import numpy as np
 import PySpin
 import traceback
 import sys
-from multiprocessing import Queue, Process, shared_memory
+from multiprocessing import Queue, Process
 from cddm_experiment.trigger import run_arduino
 import time
 
@@ -441,8 +441,9 @@ def run_cameras(conf):
                 cam.DeInit()
                 del cam
             cam_list.Clear()
+            del cam_list
             print("Finished.")
-            #system.ReleaseInstance()
+            system.ReleaseInstance()
 
     return f(system,cams,cam_list)
 
@@ -493,7 +494,7 @@ def _queued_frame_grabber(f,server_queue,  args = (), kwargs = {}):
             
             
 def _shared_frame_grabber(f, server_queue,  args = (), kwargs = {} ):
-                        
+    from multiprocessing import shared_memory                        
     video = f(*args,**kwargs)
     
     
@@ -581,7 +582,8 @@ def queued_multi_frame_grabber(f,args = (), kwargs = {}):
         p.terminate()
 
 
-def shared_multi_frame_grabber(f,args = (), kwargs = {}, copy = True):
+def shared_multi_frame_grabber(f,args = (), kwargs = {}, copy = False):
+    from multiprocessing import shared_memory
               
     server_queue = Queue()
     p = Process(target=_shared_frame_grabber, args=(f, server_queue), kwargs = {"args" : args, "kwargs" : kwargs})
@@ -613,12 +615,7 @@ def shared_multi_frame_grabber(f,args = (), kwargs = {}, copy = True):
             shm.close()
             shm.unlink()
         i+= 1
-        
-        #shm is no longer needed
-        # for shm in shm_list:
-        #     shm.close()
-        #     shm.unlink()
-            
+           
     try:
         print('joining...')
         p.join()
