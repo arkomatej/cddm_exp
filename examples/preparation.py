@@ -40,7 +40,7 @@ def normalize_diff(video):
         f2=ratio*f2
         yield f1,f2        
 
-trigger_config, cam_config = load_config()
+trigger_config, cam_config, analysis_config = load_config()
 
 signal_ratio=1
 
