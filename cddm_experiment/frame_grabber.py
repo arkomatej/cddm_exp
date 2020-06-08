@@ -443,7 +443,7 @@ def run_cameras(conf):
             cam_list.Clear()
             del cam_list
             print("Finished.")
-            system.ReleaseInstance()
+            #system.ReleaseInstance()
 
     return f(system,cams,cam_list)
 

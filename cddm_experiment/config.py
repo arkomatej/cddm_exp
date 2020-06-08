@@ -172,7 +172,7 @@ def get_args():
     group3.add_argument('--imgheight', action="store", dest='imgheight', required=False, help='Image height in pixels', type=int)
     group3.add_argument('--xoffset', action="store", dest='xoffset', required=False, help='X offset in pixels', type=int)
     group3.add_argument('--yoffset', action="store", dest='yoffset', required=False, help='Y offset in pixels', type=int)
-    group3.add_argument('--blc', action="store", dest='blacklevelclamping', required=False, help='Black level clamping, 0 for OFF, 1 for ON', type=str)
+    group3.add_argument('--blc', action="store", dest='blacklevelclamping', required=False, help='Black level clamping, 0 for OFF, 1 for ON', type=int)
     group3.add_argument('--autogain', action="store", dest='autogain', required=False, help='Auto gain, 0 for Off, 1 for Once, 2 for Continuous', type=int)
     group3.add_argument('--gain', action="store", dest='gain', required=False, help='Gain', type=int)
     group3.add_argument('--gammaenable', action="store", dest='gammaenable', required=False, help='Enable gamma, 0 for OFF, 1 for ON', type=int)
@@ -240,9 +240,9 @@ def load_config():
         c_trigger=conf._sections['TRIGGERING SETTINGS']
         c_cam=conf._sections['CAMERA SETTINGS']
         c_analysis=conf._sections['ANALYSIS SETTINGS']
-        TRIGGER_CONFIG={key: value for key, value in c_trigger.items()}
-        CAM_CONFIG={key: value for key, value in c_cam.items()}
-        ANALYSIS_CONFIG={key: value for key, value in c_analysis.items()}
+        TRIGGER_CONFIG={key: int(value) for key, value in c_trigger.items()}
+        CAM_CONFIG={key: int(value) for key, value in c_cam.items()}
+        ANALYSIS_CONFIG={key: int(value) for key, value in c_analysis.items()}
     
     #configuration gets overriden with user input parsed arguments
     for key in override_keys:

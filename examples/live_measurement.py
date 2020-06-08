@@ -54,7 +54,7 @@ if __name__ == "__main__":
     from cddm.multitau import iccorr_multi, normalize_multi, log_merge
     from cddm.conf import set_verbose, set_rfft2lib
     from cddm.fft import rfft2#, normalize_fft
-    from cddm_experiment.frame_grabber import frame_grabber, queued_multi_frame_grabber, shared_multi_frame_grabber
+    from cddm_experiment.frame_grabber import frame_grabber, queued_multi_frame_grabber#, shared_multi_frame_grabber
     from cddm_experiment.trigger import run_simulation
     from cddm_experiment.config import load_config
     from cddm.viewer import MultitauViewer

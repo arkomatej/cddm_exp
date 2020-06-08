@@ -441,6 +441,7 @@ def run_cameras(conf):
                 cam.DeInit()
                 del cam
             cam_list.Clear()
+            del cam_list
             print("Finished.")
             #system.ReleaseInstance()
 
@@ -581,7 +582,7 @@ def queued_multi_frame_grabber(f,args = (), kwargs = {}):
         p.terminate()
 
 
-def shared_multi_frame_grabber(f,args = (), kwargs = {}, copy = True):
+def shared_multi_frame_grabber(f,args = (), kwargs = {}, copy = False):
     from multiprocessing import shared_memory
               
     server_queue = Queue()
@@ -614,12 +615,7 @@ def shared_multi_frame_grabber(f,args = (), kwargs = {}, copy = True):
             shm.close()
             shm.unlink()
         i+= 1
-        
-        #shm is no longer needed
-        # for shm in shm_list:
-        #     shm.close()
-        #     shm.unlink()
-            
+           
     try:
         print('joining...')
         p.join()

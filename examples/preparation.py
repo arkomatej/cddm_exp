@@ -42,9 +42,13 @@ def normalize_diff(video):
 
 trigger_config, cam_config, analysis_config = load_config()
 
+print(trigger_config)
+print(cam_config)
+print(analysis_config)
+
 signal_ratio=1
 
-clip=cam_config["imgheight"]*cam_config["imgwidth"]*signal_ratio
+clip=int(cam_config["imgheight"])*int(cam_config["imgwidth"])*signal_ratio
    
 video = frame_grabber(trigger_config,cam_config)
 #video = queued_multi_frame_grabber(frame_grabber, (trigger_config,cam_config))
