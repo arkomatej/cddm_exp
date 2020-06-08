@@ -41,7 +41,7 @@ if __name__ == "__main__":
 
     set_verbose(2)
 
-    trigger_config, cam_config = load_config()
+    trigger_config, cam_config, analysis_config = load_config()
     
     window = blackman((512,512))
     w = ((window,window),)* trigger_config["count"]
