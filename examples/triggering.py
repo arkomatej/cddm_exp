@@ -15,16 +15,18 @@
 ===================================================================================================
 """
 
-import cddm_experiment
 from cddm_experiment.config import load_config
 from cddm_experiment.trigger import run_arduino, run_simulation
 
 #loading configuration using both config parser and argument parser
 #both camera and triggering configuration is read
-trigger_config, cam_config = load_config()
+trigger_config, cam_config, analysis_config = load_config()
+print(trigger_config)
+print(cam_config)
+print(analysis_config)
 
 #simulating times, times are saved on the disk automatically, t1 and t2 are not used here   
-t1,t2=run_simulation(trigger_config)
+#t1,t2=run_simulation(trigger_config)
     
 #triggering signal is started
-run_arduino(trigger_config)
+#run_arduino(trigger_config)
