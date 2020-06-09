@@ -124,6 +124,7 @@ def configure_framerate(cam,config):
         framerate_to_set=min(cam.AcquisitionFrameRate.GetMax(),framerate_to_set)
         cam.AcquisitionFrameRate.SetValue(framerate_to_set)
         print("Frame rate set to %d fps." % framerate_to_set)
+        config["framerate"]=cam.AcquisitionFrameRate.GetValue()
     except PySpin.SpinnakerException as ex:
         print("Error: %s" % ex)
 
@@ -494,11 +495,11 @@ def _queued_frame_grabber(f,server_queue,  args = (), kwargs = {}):
             
             
 def _shared_frame_grabber(f, server_queue,  args = (), kwargs = {} ):
-    from multiprocessing import shared_memory                        
+    
+    from multiprocessing import shared_memory     
+                   
     video = f(*args,**kwargs)
     
-    
-
     try:
         i = 0
         shm_list = []
@@ -625,6 +626,8 @@ def shared_multi_frame_grabber(f,args = (), kwargs = {}, copy = False):
         p.terminate()
     
 def _shared_frame_grabber2(f, server_queue,  args = (), kwargs = {} ):
+    
+    from multiprocessing import shared_memory 
                         
     video = f(*args,**kwargs)
 
@@ -653,8 +656,7 @@ def _shared_frame_grabber2(f, server_queue,  args = (), kwargs = {} ):
 
 
 def shared_multi_frame_grabber2(f,args = (), kwargs = {}):
-    #from multiprocessing import shared_memory
-    #import shared_memory   
+    from multiprocessing import shared_memory  
               
     server_queue = Queue()
     p = Process(target=_shared_frame_grabber2, args=(f, server_queue), kwargs = {"args" : args, "kwargs" : kwargs})

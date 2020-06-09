@@ -1,17 +1,3 @@
-# -*- coding: utf-8 -*-
-"""
-Created on Fri Jun 05 09:06:23 2020
-
-@author: PolarBear2017
-"""
-
-# -*- coding: utf-8 -*-
-"""
-Created on Wed May 27 14:42:59 2020
-
-@author: PolarBear2017
-"""
-
 '''
 ===================================================================================================
     Cross DDM live measurement python example.
@@ -31,7 +17,12 @@ Created on Wed May 27 14:42:59 2020
 
 import numpy as np
 import matplotlib.pyplot as plt
+import time
 import datetime
+import os
+import sys
+
+FIRST_FRAME_TIMES = []
 
 def normalize_fft(video):
     for frames in video:
@@ -48,58 +39,118 @@ def save_first_frame(video, fname, id = 0):
             first = False
         yield frames
         
-
+def save_last_frame(video, fname, count, id = 0):
+    i=0
+    for frames in video:
+        if i == (count-1):
+            plt.imsave(fname, frames[id],cmap = "gray", vmin = 0, vmax = 2**16-1)
+            first = False
+        i+=1
+        yield frames
+        
+def read_start_time(video):
+    first = True
+    for frames in video:
+        if first:
+            FIRST_FRAME_TIMES.append(time.time())
+            first = False
+        yield frames
+        
 if __name__ == "__main__":
-
+    
     from cddm.video import multiply
     from cddm.window import blackman
     from cddm.multitau import iccorr_multi, normalize_multi, log_merge
     from cddm.conf import set_verbose, set_rfft2lib
     from cddm.fft import rfft2
-    #from cddm.fft import normalize_fft
     from cddm_experiment.frame_grabber import frame_grabber, queued_multi_frame_grabber
     from cddm_experiment.trigger import run_simulation
-    from cddm_experiment.config import load_config
+    from cddm_experiment.config import load_config, s
     from cddm.viewer import MultitauViewer
+    #from cddm.fft import normalize_fft
     
+    #cddm configuration changes
     set_verbose(2)
-    set_rfft2lib("mkl_fft")
-
-    trigger_config, cam_config = load_config()
+    set_rfft2lib("pyfftw")
+    
+    #SETUP
+    trigger_config, cam_config, analysis_config = load_config()
+    
+    PERIOD=trigger_config['n']*2
+    count=trigger_config['count']
+    cpath=trigger_config['cpath']
+    number=int(analysis_config["number"])
+    interval=int(analysis_config["interval"])
+    kimax=int(analysis_config["kimax"])
+    kjmax=int(analysis_config["kjmax"])
+    show_viewer=bool(analysis_config["viewer"])
+    normalize=bool(analysis_config["normalization"])
+    directory=str(analysis_config["output"])
+    overwrite=bool(analysis_config["overwrite"])
+    m_times=[]
+    
+    if os.path.exists('./'+directory) and overwrite == False:
+        
+        print("WARNING! Directory already exists. Change output directory name with -o command or turn on overwrite by setting --ow to 1.")
+        print("Exiting...")
+        sys.exit()
+        
+    else:
+        try:
+            os.chdir('./'+directory)
+        except FileNotFoundError:
+            os.makedirs('./'+directory)
+            os.chdir('./'+directory)
+            
+        print("Directory changed.")
+        
+        c=trigger_config
+        c.update(cam_config)
+        c.update(analysis_config)
+        
+        now = datetime.datetime.now()
+        dtfile=now.strftime("_%d.%m.%Y_%H-%M-%S")
+        dtstr="# Date and time : "+now.strftime("%Y-%m-%d %H:%M:%S")+"\n"
+        
+        with open(cpath+'.ini', 'w') as configfile:
+            configfile.write(dtstr+s.format(**c))
+            print("Configuration file saved/updated in output folder.")
+          
+    if show_viewer:
+        viewer = MultitauViewer(scale = True, shape = (512,512))
+        #initial mask parameters
+        viewer.k = 15
+        viewer.sector = 10
+    else:
+        viewer=None
+        
+    t1,t2=run_simulation(trigger_config)
     
     window = blackman((512,512))
     w = ((window,window),)* trigger_config["count"]
-
-    t1,t2=run_simulation(trigger_config)
-
-    PERIOD=trigger_config['n']*2
+          
+    #MAIN LOOP   
     
-    T=datetime.datetime.now()
-    m_times=[]
-    
-    i=0
-    
-    while i<96:
+    for i in range(number):
         
-        T=datetime.datetime.now()
-        Tstr=T.strftime("%H:%M:%S")
-        m_times.append(str(i)+'\t'+Tstr)
-
+        i+=1
+        
         dual_video = queued_multi_frame_grabber(frame_grabber, (trigger_config,cam_config))
         
-        dual_video = save_first_frame(dual_video, "camera0h{}.jpg".format(i), id = 0)
-        dual_video = save_first_frame(dual_video, "camera1h{}.jpg".format(i), id = 1)
-        #dual_video = frame_grabber(trigger_config,cam_config)
+        dual_video = read_start_time(dual_video)
+        
+        dual_video = save_first_frame(dual_video, "camera1_first_{}.jpg".format(i), id = 0)
+        dual_video = save_first_frame(dual_video, "camera2_first_{}.jpg".format(i), id = 1)
+        
+        dual_video = save_last_frame(dual_video, "camera1_last_{}.jpg".format(i), count=count, id = 0)
+        dual_video = save_last_frame(dual_video, "camera2_last_{}.jpg".format(i), count=count, id = 1)
+        
         dual_video = multiply(dual_video, w)
     
-        fdual_video = rfft2(dual_video, kimax = 128, kjmax = 128)
+        fdual_video = rfft2(dual_video, kimax = kimax, kjmax = kjmax)
         
-        fdual_video = normalize_fft(fdual_video)
-        #fdual_video = normalize_fft(fdual_video)
-        
-        viewer = MultitauViewer(scale = True, shape = (512,512))
-        viewer.k = 15 #initial mask parameters,
-        viewer.sector = 10
+        if normalize:
+            fdual_video = normalize_fft(fdual_video)
     
         data, bg, var = iccorr_multi(fdual_video, t1, t2, period = PERIOD,
                                   viewer  = viewer,  auto_background = True, binning =  True)
@@ -108,9 +159,20 @@ if __name__ == "__main__":
     
         x, logdata = log_merge(cfast,cslow)
     
-        np.save('timeh_'+str(i)+'.npy',x)
-        np.save('hea1_'+str(i)+'.npy',logdata)
-        np.savetxt('measurement_times_hea1.txt', m_times, delimiter="\t", fmt="%s") 
-        i+=1
-        
+        np.save(directory+'_time_'+str(i)+'.npy', x)
+        np.save(directory+'_data_'+str(i)+'.npy', logdata)
+        Tstr=datetime.datetime.fromtimestamp(FIRST_FRAME_TIMES[-1]).strftime("%H:%M:%S")
+        m_times.append(str(i)+'\t'+Tstr)
+        np.savetxt(directory+'_measurement_times.txt', m_times, delimiter="\t", fmt="%s")
         print("Measurement saved.")
+        
+        if i == number:
+            break
+        else:
+            T=time.time()
+            sleep = interval-T+FIRST_FRAME_TIMES[-1]
+            if sleep > 0:
+                print('Waiting until the next measurement...')
+                time.sleep(sleep)
+        
+        

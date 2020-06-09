@@ -84,7 +84,7 @@ reversedirection = {reversedirection}
 # Number of consecutive measurements.
 number = {number}
 # Time between two consecutive measurements in seconds.
-waittime = {waittime}
+interval = {interval}
 # FFT normalization; 0 for OFF, 1 for ON.
 normalization = {normalization}
 # Enable viewer; 0 for OFF, 1 for ON.
@@ -129,7 +129,7 @@ CAM_CONFIG_DEFAULT={
 
 ANALYSIS_CONFIG_DEFAULT={
         "number" : 1,               # Number of consecutive measurements.
-        "waittime" : 0,             # Time between two consecutive measurements in seconds.
+        "interval" : 0,             # Time between two consecutive measurements in seconds.
         "normalization" : 1,        # FFT normalization; 0 for OFF, 1 for ON.
         "viewer" : 0,               # Enable viewer; 0 for OFF, 1 for ON.
         "kimax" : 96,               # Maximal k value in FFT, i direction.
@@ -185,7 +185,7 @@ def get_args():
     
     group4 = parser.add_argument_group('Analysis settings')
     group4.add_argument('--number', action="store", dest='number', required=False, help='Number of consecutive measurements.',type=int)
-    group4.add_argument('--wt', action="store", dest='waittime', required=False, help='Time between two consecutive measurements in seconds.',type=int)
+    group4.add_argument('--interval', action="store", dest='interval', required=False, help='Time between two consecutive measurements in seconds.',type=int)
     group4.add_argument('--normalization', action="store", dest='normalization', required=False, help='FFT normalization; 0 for OFF, 1 for ON.',type=int)
     group4.add_argument('--viewer', action="store", dest='viewer', required=False, help='Enable viewer; 0 for OFF, 1 for ON.',type=int)
     group4.add_argument('--kimax', action="store", dest='kimax', required=False, help='Maximal k value in FFT, i direction.',type=int)
@@ -237,9 +237,9 @@ def load_config():
             ANALYSIS_CONFIG=ANALYSIS_CONFIG_DEFAULT.copy()
             cpath="conf"+dtfile+".ini"
     else:
-        c_trigger=conf._sections['TRIGGERING SETTINGS']
-        c_cam=conf._sections['CAMERA SETTINGS']
-        c_analysis=conf._sections['ANALYSIS SETTINGS']
+        c_trigger=conf['TRIGGERING SETTINGS']
+        c_cam=conf['CAMERA SETTINGS']
+        c_analysis=conf['ANALYSIS SETTINGS']
         TRIGGER_CONFIG={key: int(value) for key, value in c_trigger.items()}
         CAM_CONFIG={key: int(value) for key, value in c_cam.items()}
         ANALYSIS_CONFIG={key: int(value) for key, value in c_analysis.items()}
@@ -254,7 +254,7 @@ def load_config():
             ANALYSIS_CONFIG[key]=int(override.get(key))
         else:
             pass
-
+    
     config=TRIGGER_CONFIG.copy()
     config.update(CAM_CONFIG)
     config.update(ANALYSIS_CONFIG)
