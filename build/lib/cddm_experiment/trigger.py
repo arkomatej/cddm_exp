@@ -1,17 +1,21 @@
 """
 ===================================================================================================
-    Cross DDM random triggering and calculation of triggering times.
-    Copyright (C) 2019; Matej Arko, Andrej Petelin
-    This program is free software: you can redistribute it and/or modify
-    it under the terms of the GNU General Public License as published by
-    the Free Software Foundation, either version 3 of the License, or
-    (at your option) any later version.
-    This program is distributed in the hope that it will be useful,
-    but WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-    GNU General Public License for more details.
-    You should have received a copy of the GNU General Public License
-    along with this program.  If not, see <https://www.gnu.org/licenses/>.
+    
+Cross DDM random triggering and calculation of triggering times.
+    
+Copyright (C) 2019; Matej Arko, Andrej Petelin
+    
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+You should have received a copy of the GNU General Public License
+along with this program.  If not, see <https://www.gnu.org/licenses/>.
+    
 ===================================================================================================
 
 """
@@ -20,7 +24,7 @@ import serial
 import numpy as np
 import struct
 import time
-import config  
+import cddm_experiment.config as config  
 
 
 def read_trigger(arduino, conf = config.TRIGGER_CONFIG_DEFAULT):
@@ -258,7 +262,7 @@ if __name__ == '__main__':
     #t1,t2=run_simulation(trigger_config)
     
     run_arduino(trigger_config)
-
+    
      
 
 

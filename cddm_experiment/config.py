@@ -23,6 +23,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 import configparser
 import argparse
 import datetime
+import sys
 
 s = '''
 [TRIGGERING SETTINGS]
@@ -68,7 +69,7 @@ gain = {gain}
 gammaenable = {gammaenable}
 # 1 for Trigger ON, 0 for trigger OFF
 trigger = {trigger}
-# 0 for software, 1 for Line0, 2 for Line1, 3 for Line2, 4 for Line3
+# Trigger source; 0 for software, 1 for Line0, 2 for Line1, 3 for Line2, 4 for Line3
 triggersource = {triggersource}
 # camera 1 serial number
 cam1serial = {cam1serial}
@@ -79,6 +80,19 @@ reversecam = {reversecam}
 # x for reverse in x direction, y for reverse in y direction
 reversedirection = {reversedirection}
 
+[ANALYSIS SETTINGS]
+# Number of consecutive measurements.
+number = {number}
+# Time between two consecutive measurements in seconds.
+interval = {interval}
+# FFT normalization; 0 for OFF, 1 for ON.
+normalization = {normalization}
+# Enable viewer; 0 for OFF, 1 for ON.
+viewer = {viewer}
+# Maximal k value in FFT, i direction.
+kimax = {kimax}
+# Maximal k value in FFT, j direction.
+kjmax = {kjmax}
 '''
 
 #Default settings
@@ -106,11 +120,20 @@ CAM_CONFIG_DEFAULT={
         "gain" : 0,                 # gain
         "gammaenable" : 0,          # enable gamma, 0 for OFF, 1 for ON
         "trigger" : 1,              # 1 for Trigger mode ON, 0 for trigger mode OFF
-        "triggersource" : 1,        # 0 for software, 1 for Line0, 2 for Line1, 3 for Line2, 4 for Line3
+        "triggersource" : 1,        # Trigger source; 0 for software, 1 for Line0, 2 for Line1, 3 for Line2, 4 for Line3
         "cam1serial": 20045478,     # camera 1 serial number,
         "cam2serial": 20045476,     # camera 2 serial number
         "reversecam": 0,            # 0 for none, 1 for camera1, 2 for camera 2   
         "reversedirection": 0,      # 0 for reverse in x direction, 1 for reverse in y direction
+        }
+
+ANALYSIS_CONFIG_DEFAULT={
+        "number" : 1,               # Number of consecutive measurements.
+        "interval" : 0,             # Time between two consecutive measurements in seconds.
+        "normalization" : 1,        # FFT normalization; 0 for OFF, 1 for ON.
+        "viewer" : 0,               # Enable viewer; 0 for OFF, 1 for ON.
+        "kimax" : 96,               # Maximal k value in FFT, i direction.
+        "kjmax" : 96,               # # Maximal k value in FFT, j direction.
         }
 
 def get_args():
@@ -126,8 +149,10 @@ def get_args():
 
     parser = argparse.ArgumentParser(argument_default=argparse.SUPPRESS, description="Arduino initialization for c-DDM triggering and time simulation. Set optional parameters to override configuration file.")
 
-    group1 = parser.add_argument_group('Configuration file path')
+    group1 = parser.add_argument_group('File paths')
     group1.add_argument('-c','--conf', action="store", dest='cpath', required=False, help='Configuration file path',type=str)
+    group1.add_argument('-o','--output', action="store", dest='output', required=False, help='Main output filename.',type=str, default = "default")
+    group1.add_argument('--ow', action="store", dest='overwrite', required=False, help='Overwrite files; 0 for NO, 1 for YES.',type=int, default = 0)
 
     group2 = parser.add_argument_group('Triggering settings')
     group2.add_argument('-m','--mode', action="store", dest='mode', required=False, help='Triggering mode: 0 - random t2, 1 - random t2 + zero modification, 2 - modulo t2, 3 - modulo t2 + zero modification.',type=int)
@@ -147,16 +172,24 @@ def get_args():
     group3.add_argument('--imgheight', action="store", dest='imgheight', required=False, help='Image height in pixels', type=int)
     group3.add_argument('--xoffset', action="store", dest='xoffset', required=False, help='X offset in pixels', type=int)
     group3.add_argument('--yoffset', action="store", dest='yoffset', required=False, help='Y offset in pixels', type=int)
-    group3.add_argument('--blc', action="store", dest='blacklevelclamping', required=False, help='Black level clamping, 0 for OFF, 1 for ON', type=str)
+    group3.add_argument('--blc', action="store", dest='blacklevelclamping', required=False, help='Black level clamping, 0 for OFF, 1 for ON', type=int)
     group3.add_argument('--autogain', action="store", dest='autogain', required=False, help='Auto gain, 0 for Off, 1 for Once, 2 for Continuous', type=int)
     group3.add_argument('--gain', action="store", dest='gain', required=False, help='Gain', type=int)
     group3.add_argument('--gammaenable', action="store", dest='gammaenable', required=False, help='Enable gamma, 0 for OFF, 1 for ON', type=int)
     group3.add_argument('--trigger', action="store", dest='trigger', required=False, help='1 for Trigger ON, 0 for trigger OFF', type=int)
-    group3.add_argument('--triggersource', action="store", dest='triggersource', required=False, help='0 for software, 1 for Line0, 2 for Line1, 3 for Line2, 4 for Line3',type=int)
+    group3.add_argument('--triggersource', action="store", dest='triggersource', required=False, help='Trigger source; 0 for software, 1 for Line0, 2 for Line1, 3 for Line2, 4 for Line3',type=int)
     group3.add_argument('--cam1serial', action="store", dest='cam1serial', required=False, help='Camera 1 serial number', type=int)
     group3.add_argument('--cam2serial', action="store", dest='cam2serial', required=False, help='Camera 2 serial number', type=int)
     group3.add_argument('--revcam', action="store", dest='reversecam', required=False, help='Camera to reverse: 0 for none, 1 for camera1, 2 for camera 2 ', type=int)
     group3.add_argument('--revdir', action="store", dest='reversedirection', required=False, help='0 for reverse in X direction, 1 for reverse in Y direction', type=int)
+    
+    group4 = parser.add_argument_group('Analysis settings')
+    group4.add_argument('--number', action="store", dest='number', required=False, help='Number of consecutive measurements.',type=int)
+    group4.add_argument('--interval', action="store", dest='interval', required=False, help='Time between two consecutive measurements in seconds.',type=int)
+    group4.add_argument('--normalization', action="store", dest='normalization', required=False, help='FFT normalization; 0 for OFF, 1 for ON.',type=int)
+    group4.add_argument('--viewer', action="store", dest='viewer', required=False, help='Enable viewer; 0 for OFF, 1 for ON.',type=int)
+    group4.add_argument('--kimax', action="store", dest='kimax', required=False, help='Maximal k value in FFT, i direction.',type=int)
+    group4.add_argument('--kjmax', action="store", dest='kjmax', required=False, help='Maximal k value in FFT, j direction.',type=int)
     
     return parser.parse_args()
 
@@ -190,35 +223,41 @@ def load_config():
         cpath=args.cpath
         conf.read_file(open(cpath))
 
-
     except:
         try:
             cpath=args.cpath
             print("Configuration file does not yet exist. Created a configuration file with default settings.")
             TRIGGER_CONFIG=TRIGGER_CONFIG_DEFAULT.copy()
             CAM_CONFIG=CAM_CONFIG_DEFAULT.copy()
+            ANALYSIS_CONFIG=ANALYSIS_CONFIG_DEFAULT.copy()
         except:
             print("Created a default configuration file with default settings.")
             TRIGGER_CONFIG=TRIGGER_CONFIG_DEFAULT.copy()
             CAM_CONFIG=CAM_CONFIG_DEFAULT.copy()
-            cpath="config"+dtfile+".ini"
+            ANALYSIS_CONFIG=ANALYSIS_CONFIG_DEFAULT.copy()
+            cpath="conf"+dtfile+".ini"
     else:
-        c_trigger=conf._sections['TRIGGERING SETTINGS']
-        c_cam=conf._sections['CAMERA SETTINGS']
+        c_trigger=conf['TRIGGERING SETTINGS']
+        c_cam=conf['CAMERA SETTINGS']
+        c_analysis=conf['ANALYSIS SETTINGS']
         TRIGGER_CONFIG={key: int(value) for key, value in c_trigger.items()}
         CAM_CONFIG={key: int(value) for key, value in c_cam.items()}
-
+        ANALYSIS_CONFIG={key: int(value) for key, value in c_analysis.items()}
+    
     #configuration gets overriden with user input parsed arguments
     for key in override_keys:
         if key in TRIGGER_CONFIG.keys():
             TRIGGER_CONFIG[key]=int(override.get(key))
         elif key in CAM_CONFIG.keys():
             CAM_CONFIG[key]=int(override.get(key))
+        elif key in ANALYSIS_CONFIG.keys():
+            ANALYSIS_CONFIG[key]=int(override.get(key))
         else:
             pass
-
+    
     config=TRIGGER_CONFIG.copy()
     config.update(CAM_CONFIG)
+    config.update(ANALYSIS_CONFIG)
 
     #saving the configuration to cpath
     with open(cpath, 'w') as configfile:
@@ -227,12 +266,22 @@ def load_config():
 
     TRIGGER_CONFIG["cpath"]=cpath[:-4]   #used to name random times files
     CAM_CONFIG["count"]=TRIGGER_CONFIG["count"]
+    
+    output = args.output
+    if output == "default":
+        output= dtfile[1:]
+    ow= args.overwrite
+    
+    TRIGGER_CONFIG["output"]=output
+    ANALYSIS_CONFIG["output"]=output
+    ANALYSIS_CONFIG["overwrite"]=ow 
 
-    return TRIGGER_CONFIG, CAM_CONFIG
+    return TRIGGER_CONFIG, CAM_CONFIG, ANALYSIS_CONFIG
 
 if __name__ == '__main__':
 
-    trigger_config, cam_config = load_config()
+    trigger_config, cam_config, analysis_config = load_config()
 
     print(trigger_config)
     print(cam_config)
+    print(analysis_config)

@@ -24,7 +24,7 @@ import serial
 import numpy as np
 import struct
 import time
-import config  
+import cddm_experiment.config as config  
 
 
 def read_trigger(arduino, conf = config.TRIGGER_CONFIG_DEFAULT):
