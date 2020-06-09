@@ -23,7 +23,6 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 import configparser
 import argparse
 import datetime
-import sys
 
 s = '''
 [TRIGGERING SETTINGS]
@@ -258,6 +257,8 @@ def load_config():
     config=TRIGGER_CONFIG.copy()
     config.update(CAM_CONFIG)
     config.update(ANALYSIS_CONFIG)
+    
+    #add defaults where data is missing!!
 
     #saving the configuration to cpath
     with open(cpath, 'w') as configfile:
