@@ -26,7 +26,7 @@ print(cam_config)
 print(analysis_config)
 
 #simulating times, times are saved on the disk automatically, t1 and t2 are not used here   
-#t1,t2=run_simulation(trigger_config)
+t1,t2=run_simulation(trigger_config)
     
 #triggering signal is started
-#run_arduino(trigger_config)
+run_arduino(trigger_config)

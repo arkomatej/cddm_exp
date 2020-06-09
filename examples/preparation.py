@@ -42,10 +42,6 @@ def normalize_diff(video):
 
 trigger_config, cam_config, analysis_config = load_config()
 
-print(trigger_config)
-print(cam_config)
-print(analysis_config)
-
 signal_ratio=1
 
 clip=int(cam_config["imgheight"])*int(cam_config["imgwidth"])*signal_ratio
