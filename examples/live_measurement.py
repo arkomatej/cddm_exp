@@ -17,43 +17,91 @@
 
 import numpy as np
 import matplotlib.pyplot as plt
+import time
+
+FIRST_FRAME_TIMES = []
+
+def read_start_time(video):
+    first = True
+    for frames in video:
+        if first:
+            FIRST_FRAME_TIMES.append(time.time())
+            first = False
+        yield frames
+
+def normalize_fft(video):
+    for frames in video:
+        f1,f2 = frames
+        ratio = f1[0,0]/f2[0,0]
+        f2 = np.multiply(f2,ratio,out = f2)
+        yield f1,f2
+
+def multi_frame_grabber(trigger_config,cam_config):
+    dtype = np.dtype("uint16")
+    shape = (512,512)
+    n = shape[0] * shape[1]
+    frame1 = np.ones(shape,dtype)
+    time.sleep(1.)
+    for i in range(1000):
+        time.sleep(0.001)
+        print ("frame {} captured".format(i))
+        yield frame1.copy(), frame1.copy()#np.random.randn(*shape), np.random.randn(*shape)
 
 if __name__ == "__main__":
-
-    from cddm.video import apply_window
+    
+    from cddm.video import multiply
     from cddm.window import blackman
     from cddm.multitau import iccorr_multi, normalize_multi, log_merge
-    from cddm.conf import set_verbose
-    from cddm.fft import rfft2, normalize_fft#mkl_rfft2
-    from cddm_experiment.frame_grabber import frame_grabber, queued_multi_frame_grabber
+    from cddm.conf import set_verbose, set_rfft2lib
+    from cddm.fft import rfft2#, normalize_fft
+    from cddm_experiment.frame_grabber import frame_grabber, queued_multi_frame_grabber#, shared_multi_frame_grabber
     from cddm_experiment.trigger import run_simulation
     from cddm_experiment.config import load_config
+    from cddm.viewer import MultitauViewer
 
     set_verbose(2)
+    
+    #set_rfft2lib("mkl_fft")
 
-    w1 = blackman((512,512))
-    w2 = blackman((512,512))
-
-    trigger_config, cam_config = load_config()
+    trigger_config, cam_config, analysis_config = load_config()
+    
+    window = blackman((512,512))
+    window = np.float32(window)
+    
+    w = ((window,window),)* trigger_config["count"]
 
     t1,t2=run_simulation(trigger_config)
 
     PERIOD=trigger_config['n']*2
 
-    dual_video = queued_multi_frame_grabber(frame_grabber, (trigger_config,cam_config))
+    #dual_video = queued_multi_frame_grabber(frame_grabber, (trigger_config,cam_config))
+    dual_video = shared_multi_frame_grabber(frame_grabber, (trigger_config,cam_config))
     #dual_video = frame_grabber(trigger_config,cam_config)
-    dual_video = apply_window(dual_video, (w1,w2))
+    
+    dual_video = read_start_time(dual_video)
+    
+    dual_video = multiply(dual_video, w)
 
-    fdual_video = rfft2(dual_video, kisize = 128, kjsize = 128)
+    fdual_video = rfft2(dual_video, kimax = 96, kjmax = 96)
+    
     fdual_video = normalize_fft(fdual_video)
+    
+    #viewer = MultitauViewer(scale = False, shape = (512,512))
+    #viewer.k = 15 #initial mask parameters,
+    #viewer.sector = 10
+    
+    #viewer = None
 
-    data, bg = iccorr_multi(fdual_video, t1, t2, period = PERIOD, level = 5,
-                              chunk_size = 128, show = True, auto_background = True, binning =  True, return_background = True)
+    data, bg, var = iccorr_multi(fdual_video, t1, t2, period = PERIOD,
+                              viewer  = None,  auto_background = True, binning =  True)#, thread_divisor = 6)
 
-    cfast, cslow = normalize_multi(data)
+    cfast, cslow = normalize_multi(data, background = bg, variance = var, scale=False)
+
     x, logdata = log_merge(cfast,cslow)
 
-    np.save('x_live.npy',x)
-    np.save('logdata_live.npy',logdata)
+    np.save(analysis_config['output']+'_times.npy',x)
+    np.save(analysis_config['output']+'_data.npy',logdata) 
+    
+    print("Measurement saved.")
 
     plt.show()
