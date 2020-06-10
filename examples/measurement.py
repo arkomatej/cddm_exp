@@ -22,7 +22,7 @@ import datetime
 import os
 import sys
 
-FIRST_FRAME_TIMES = []
+START_TIMES = []
 
 def normalize_fft(video):
     for frames in video:
@@ -44,7 +44,6 @@ def save_last_frame(video, fname, count, id = 0):
     for frames in video:
         if i == (count-1):
             plt.imsave(fname, frames[id],cmap = "gray", vmin = 0, vmax = 2**16-1)
-            first = False
         i+=1
         yield frames
         
@@ -52,7 +51,7 @@ def read_start_time(video):
     first = True
     for frames in video:
         if first:
-            FIRST_FRAME_TIMES.append(time.time())
+            START_TIMES.append(time.time())
             first = False
         yield frames
         
@@ -135,44 +134,54 @@ if __name__ == "__main__":
         
         i+=1
         
-        dual_video = queued_multi_frame_grabber(frame_grabber, (trigger_config,cam_config))
+        try:
+            START_TIMES.append(time.time())
         
-        dual_video = read_start_time(dual_video)
+            dual_video = queued_multi_frame_grabber(frame_grabber, (trigger_config,cam_config))
+            
+            #dual_video = read_start_time(dual_video)
+            
+            dual_video = save_first_frame(dual_video, "camera1_first_{}.jpg".format(i), id = 0)
+            dual_video = save_first_frame(dual_video, "camera2_first_{}.jpg".format(i), id = 1)
+            
+            dual_video = save_last_frame(dual_video, "camera1_last_{}.jpg".format(i), count=count, id = 0)
+            dual_video = save_last_frame(dual_video, "camera2_last_{}.jpg".format(i), count=count, id = 1)
+            
+            dual_video = multiply(dual_video, w)
         
-        dual_video = save_first_frame(dual_video, "camera1_first_{}.jpg".format(i), id = 0)
-        dual_video = save_first_frame(dual_video, "camera2_first_{}.jpg".format(i), id = 1)
+            fdual_video = rfft2(dual_video, kimax = kimax, kjmax = kjmax)
+            
+            if normalize:
+                fdual_video = normalize_fft(fdual_video)
         
-        dual_video = save_last_frame(dual_video, "camera1_last_{}.jpg".format(i), count=count, id = 0)
-        dual_video = save_last_frame(dual_video, "camera2_last_{}.jpg".format(i), count=count, id = 1)
+            data, bg, var = iccorr_multi(fdual_video, t1, t2, period = PERIOD,
+                                      viewer  = viewer,  auto_background = True, binning =  True)
         
-        dual_video = multiply(dual_video, w)
-    
-        fdual_video = rfft2(dual_video, kimax = kimax, kjmax = kjmax)
+            cfast, cslow = normalize_multi(data, background = bg, variance = var, scale=False)
         
-        if normalize:
-            fdual_video = normalize_fft(fdual_video)
-    
-        data, bg, var = iccorr_multi(fdual_video, t1, t2, period = PERIOD,
-                                  viewer  = viewer,  auto_background = True, binning =  True)
-    
-        cfast, cslow = normalize_multi(data, background = bg, variance = var, scale=False)
-    
-        x, logdata = log_merge(cfast,cslow)
-    
-        np.save(directory+'_time_'+str(i)+'.npy', x)
-        np.save(directory+'_data_'+str(i)+'.npy', logdata)
-        Tstr=datetime.datetime.fromtimestamp(FIRST_FRAME_TIMES[-1]).strftime("%H:%M:%S")
-        m_times.append(str(i)+'\t'+Tstr)
-        np.savetxt(directory+'_measurement_times.txt', m_times, delimiter="\t", fmt="%s")
-        print("Measurement saved.")
+            x, logdata = log_merge(cfast,cslow)
         
-        if i == number:
-            break
-        else:
-            T=time.time()
-            sleep = interval-T+FIRST_FRAME_TIMES[-1]
-            if sleep > 0:
-                print('Waiting until the next measurement...')
-                time.sleep(sleep)
+            np.save(directory+'_time_'+str(i)+'.npy', x)
+            np.save(directory+'_data_'+str(i)+'.npy', logdata)
+            Tstr=datetime.datetime.fromtimestamp(START_TIMES[-1]).strftime("%H:%M:%S")
+            m_times.append(str(i)+'\t'+Tstr)
+            np.savetxt(directory+'_measurement_times.txt', m_times, delimiter="\t", fmt="%s")
+            print("Measurement saved.")
+        
+        except:
+            print(sys.exc_info())
+            print("An error occured. Continuing execution...")
+            
+        finally:
+            
+            if i == number:
+                print("Measurement finished.")
+                break
+            else:           
+                T=time.time()
+                sleep = interval-T+START_TIMES[-1]
+                if sleep > 0:
+                    print('Waiting until the next measurement...')
+                    time.sleep(sleep)
         
         
